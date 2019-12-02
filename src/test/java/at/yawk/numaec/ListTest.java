@@ -72,6 +72,26 @@ public final class ListTest {
     }
 
     @Test(dataProvider = "allocator")
+    public void iterateRemove(LargeByteBufferAllocator allocator) {
+        MutableLongList list = LongBufferList.newMutable(allocator);
+        list.add(1);
+        list.add(2);
+        list.add(3);
+
+        MutableLongIterator itr = list.longIterator();
+        long l = 1;
+        while (itr.hasNext()) {
+            long value = itr.next();
+            if (l < 3) {
+                itr.remove();
+            }
+            Assert.assertEquals(value, l++);
+        }
+        Assert.assertEquals(l, 4);
+        Assert.assertEquals(list.toString(), "[3]");
+    }
+
+    @Test(dataProvider = "allocator")
     public void forEach(LargeByteBufferAllocator allocator) {
         MutableLongList list = LongBufferList.newMutable(allocator);
         list.add(1);
