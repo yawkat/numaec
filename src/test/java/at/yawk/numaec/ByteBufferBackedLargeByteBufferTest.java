@@ -174,8 +174,13 @@ public class ByteBufferBackedLargeByteBufferTest {
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void weirdBufferSize() {
+    public void weirdBufferSize3() {
         new ByteBufferBackedLargeByteBuffer(new ByteBuffer[0], 3);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void weirdBufferSize0() {
+        new ByteBufferBackedLargeByteBuffer(new ByteBuffer[0], 0);
     }
 
     @Test
