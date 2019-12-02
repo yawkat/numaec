@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>at.yawk.numa</groupId>
+    <artifactId>numa-eclipse-collections</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.eclipse.collections</groupId>
+            <artifactId>eclipse-collections</artifactId>
+            <version>10.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>6.1.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.13</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.timeandspace</groupId>
+                <artifactId>jpsg-maven-plugin</artifactId>
+                <version>1.3</version>
+                <executions>
+                    <execution>
+                        <id>jpsg</id>
+                        <goals>
+                            <goal>jpsg</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>1.4.10</version>
+                <configuration>
+                    <targetClasses>
+                        <param>at.yawk.numaec.ByteBufferBackedLargeByteBuffer</param>
+                        <param>at.yawk.numaec.LongBufferList*</param>
+                    </targetClasses>
+                    <targetTests>
+                        <param>at.yawk.numaec.*</param>
+                    </targetTests>
+                    <mutateStaticInitializers>true</mutateStaticInitializers>
+                    <testPlugin>testng</testPlugin>
+                    <failWhenNoMutations>true</failWhenNoMutations>
+                    <mutators>
+                        <mutator>ALL</mutator>
+                    </mutators>
+                    <timeoutConstant>500</timeoutConstant>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
