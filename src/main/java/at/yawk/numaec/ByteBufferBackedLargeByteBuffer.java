@@ -72,6 +72,9 @@ public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
     @Override
     public void copyFrom(LargeByteBuffer from, long fromIndex, long toIndex, long length)
             throws ReadOnlyBufferException, UnsupportedOperationException, IndexOutOfBoundsException {
+        if (length < 0) {
+            throw new IllegalArgumentException("length < 0");
+        }
         if (length == 0) {
             return;
         }
@@ -81,6 +84,10 @@ public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
         ByteBufferBackedLargeByteBuffer other = (ByteBufferBackedLargeByteBuffer) from;
         if (other.componentSize != this.componentSize) {
             throw new UnsupportedOperationException();
+        }
+        if (fromIndex + length > other.size() ||
+                toIndex + length > this.size()) {
+            throw new IndexOutOfBoundsException();
         }
         if (fromIndex >= toIndex) {
             while (length > 0) {
@@ -127,13 +134,15 @@ public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
                 }
                 dest.position(this.offset(toIndex + length - toCopy));
                 src.position(other.offset(fromIndex + length - toCopy));
-
-                int oldLimit = src.limit();
-                src.limit(src.position() + toCopy);
-                dest.put(src);
-                src.limit(oldLimit);
-                dest.position(0);
-                src.position(0);
+                try {
+                    int oldLimit = src.limit();
+                    src.limit(src.position() + toCopy);
+                    dest.put(src);
+                    src.limit(oldLimit);
+                } finally {
+                    dest.position(0);
+                    src.position(0);
+                }
 
                 length -= toCopy;
             }

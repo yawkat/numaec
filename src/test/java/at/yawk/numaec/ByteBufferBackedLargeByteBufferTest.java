@@ -137,7 +137,8 @@ public class ByteBufferBackedLargeByteBufferTest {
                 new ByteBuffer[]{ fromHex("00010203"), fromHex("0405") }, 4);
         for (int srcOffset = 0; srcOffset < 6; srcOffset++) {
             for (int dstOffset = 0; dstOffset < 6; dstOffset++) {
-                for (int length = 1; length < 6 - Math.max(srcOffset, dstOffset); length++) {
+                int lengthLimit = 6 - Math.max(srcOffset, dstOffset);
+                for (int length = 1; length <= lengthLimit; length++) {
                     ByteBufferBackedLargeByteBuffer bb2 = new ByteBufferBackedLargeByteBuffer(
                             new ByteBuffer[]{ fromHex("00000000"), fromHex("0000") }, 4);
                     bb2.copyFrom(bb1, srcOffset, dstOffset, length);
@@ -149,6 +150,15 @@ public class ByteBufferBackedLargeByteBufferTest {
                         }
                     }
                 }
+                ByteBufferBackedLargeByteBuffer bb2 = new ByteBufferBackedLargeByteBuffer(
+                        new ByteBuffer[]{ fromHex("00000000"), fromHex("0000") }, 4);
+                boolean error = false;
+                try {
+                    bb2.copyFrom(bb1, srcOffset, dstOffset, lengthLimit + 1);
+                } catch (IndexOutOfBoundsException e) {
+                    error = true;
+                }
+                Assert.assertTrue(error);
             }
         }
     }
@@ -197,6 +207,13 @@ public class ByteBufferBackedLargeByteBufferTest {
         ByteBufferBackedLargeByteBuffer bb2 =
                 new ByteBufferBackedLargeByteBuffer(new ByteBuffer[]{ fromHex("0000") }, 8);
         bb1.copyFrom(bb2, 0, 0, 1);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void copyNegativeLength() {
+        ByteBufferBackedLargeByteBuffer bb =
+                new ByteBufferBackedLargeByteBuffer(new ByteBuffer[]{ fromHex("0000") }, 4);
+        bb.copyFrom(LargeByteBuffer.EMPTY, 0, 0, -1);
     }
 
     @Test(expectedExceptions = UnsupportedOperationException.class)
