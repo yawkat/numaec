@@ -344,6 +344,39 @@ public class ShortBufferList extends AbstractShortIterable implements ShortList,
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof ShortList) {
+            ShortList other = (ShortList) o;
+            int expectedSize = other.size();
+            if (expectedSize == this.size()) {
+                ShortIterator j = other.shortIterator();
+                int i = 0;
+                while (i < expectedSize) {
+                    if (!j.hasNext()) { throw new ConcurrentModificationException(); }
+                    if (j.next() != get(i)) { return false; }
+                    i++;
+                }
+                if (j.hasNext()) { throw new ConcurrentModificationException(); }
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        int hashCode = 1;
+        for (int i = 0; i < size(); i++) {
+            hashCode *= 31;
+            hashCode += get(i);
+        }
+        return hashCode;
+    }
+
     class Itr implements ShortIterator {
         int i;
 

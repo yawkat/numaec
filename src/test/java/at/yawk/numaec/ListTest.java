@@ -180,6 +180,9 @@ public final class ListTest {
         list2.add(100000000000L);
 
         Assert.assertEquals(list1.dotProduct(list2), 1000000000000L);
+        // no mutation
+        Assert.assertEquals(list1.toString(), "[1, 2, 3]");
+        Assert.assertEquals(list2.toString(), "[300000000000, 200000000000, 100000000000]");
     }
 
     @Test(dataProvider = "allocator", expectedExceptions = IllegalArgumentException.class)
@@ -417,6 +420,8 @@ public final class ListTest {
         list.add(2);
         list.addAtIndex(1, 5);
         Assert.assertEquals(list.toString(), "[1, 5, 3, 2]");
+        list.addAtIndex(4, 5);
+        Assert.assertEquals(list.toString(), "[1, 5, 3, 2, 5]");
     }
 
     @Test(dataProvider = "allocator")
@@ -425,8 +430,13 @@ public final class ListTest {
         list.add(1);
         list.add(3);
         list.add(2);
+        assertThrows(IndexOutOfBoundsException.class, () -> list.addAllAtIndex(-1, 5));
+        assertThrows(IndexOutOfBoundsException.class, () -> list.addAllAtIndex(4, 5));
         Assert.assertTrue(list.addAllAtIndex(1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
         Assert.assertEquals(list.toString(), "[1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2]");
+        Assert.assertTrue(list.addAllAtIndex(13, 1, 2, 3));
+        Assert.assertEquals(list.toString(), "[1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2, 1, 2, 3]");
+        Assert.assertFalse(list.addAllAtIndex(0));
     }
 
     @Test(dataProvider = "allocator")
@@ -437,6 +447,8 @@ public final class ListTest {
         list.add(2);
         Assert.assertTrue(list.addAllAtIndex(1, LongLists.immutable.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
         Assert.assertEquals(list.toString(), "[1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2]");
+        Assert.assertTrue(list.addAllAtIndex(13, LongLists.immutable.of(1, 2, 3)));
+        Assert.assertEquals(list.toString(), "[1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2, 1, 2, 3]");
     }
 
     @Test(dataProvider = "allocator")
@@ -445,6 +457,8 @@ public final class ListTest {
         list.add(1);
         list.add(3);
         list.add(2);
+        assertThrows(IndexOutOfBoundsException.class, () -> list.removeAtIndex(-1));
+        assertThrows(IndexOutOfBoundsException.class, () -> list.removeAtIndex(3));
         Assert.assertEquals(list.removeAtIndex(1), 3);
         Assert.assertEquals(list.toString(), "[1, 2]");
     }
@@ -455,6 +469,8 @@ public final class ListTest {
         list.add(1);
         list.add(3);
         list.add(2);
+        assertThrows(IndexOutOfBoundsException.class, () -> list.set(-1, 0));
+        assertThrows(IndexOutOfBoundsException.class, () -> list.set(3, 5));
         Assert.assertEquals(list.set(1, 5), 3);
         Assert.assertEquals(list.toString(), "[1, 5, 2]");
     }
@@ -488,6 +504,8 @@ public final class ListTest {
         list.add(2);
         Assert.assertTrue(list.remove(3));
         Assert.assertEquals(list.toString(), "[1, 3, 2]");
+        Assert.assertTrue(list.remove(3));
+        Assert.assertFalse(list.remove(3));
     }
 
     @Test(dataProvider = "allocator")
@@ -599,5 +617,21 @@ public final class ListTest {
         }
         Assert.assertEquals(closed[0], 1);
         Assert.assertEquals(allocated[0], 2);
+    }
+
+    @Test(dataProvider = "allocator")
+    public void equals(LargeByteBufferAllocator allocator) {
+        Assert.assertEquals(
+                LongBufferList.newMutable(allocator).with(1).with(2).with(3),
+                LongLists.mutable.empty().with(1).with(2).with(3)
+        );
+    }
+
+    @Test(dataProvider = "allocator")
+    public void hashCode(LargeByteBufferAllocator allocator) {
+        Assert.assertEquals(
+                LongBufferList.newMutable(allocator).with(1).with(2).with(3).hashCode(),
+                LongLists.mutable.empty().with(1).with(2).with(3).hashCode()
+        );
     }
 }
