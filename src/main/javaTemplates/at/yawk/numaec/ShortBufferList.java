@@ -1,4 +1,9 @@
-/* with short|byte|char|int|long element */
+/* with short|byte|char|int|long|float|double element */
+/* define aggregate //
+// if double|float element //double
+// elif short|byte|char|int|long element //long
+// endif //
+// enddefine*/
 package at.yawk.numaec;
 
 import java.io.Closeable;
@@ -25,7 +30,7 @@ import org.eclipse.collections.impl.list.mutable.primitive.SynchronizedShortList
 import org.eclipse.collections.impl.list.mutable.primitive.UnmodifiableShortList;
 import org.eclipse.collections.impl.primitive.AbstractShortIterable;
 
-/* if int|long element //
+/* if int|long|double element //
 import java.util.Spliterator;
 // endif */
 
@@ -61,7 +66,7 @@ public class ShortBufferList extends AbstractShortIterable implements ShortList,
     }
 
     protected long scale(int index) {
-        return ((short) index) * Short.BYTES;
+        return ((long) index) * Short.BYTES;
     }
 
     @Override
@@ -110,8 +115,8 @@ public class ShortBufferList extends AbstractShortIterable implements ShortList,
     }
 
     @Override
-    public long dotProduct(ShortList list) {
-        long sum = 0;
+    public /*aggregate*/long/**/ dotProduct(ShortList list) {
+        /*aggregate*/long/**/ sum = 0;
         int i = 0;
         ShortIterator itr = list.shortIterator();
         while (i < size && itr.hasNext()) {
@@ -257,8 +262,8 @@ public class ShortBufferList extends AbstractShortIterable implements ShortList,
     }
 
     @Override
-    public long sum() {
-        long sum = 0;
+    public /*aggregate*/long/**/ sum() {
+        /*aggregate*/long/**/ sum = 0;
         for (int i = 0; i < size; i++) {
             sum += get(i);
         }
@@ -321,7 +326,7 @@ public class ShortBufferList extends AbstractShortIterable implements ShortList,
         return size;
     }
 
-    /* if int|long element //
+    /* if int|long|double element //
     @Override
     public Spliterator.OfShort spliterator() {
         throw new UnsupportedOperationException();

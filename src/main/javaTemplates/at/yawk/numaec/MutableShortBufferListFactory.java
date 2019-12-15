@@ -1,11 +1,11 @@
-/* with short|byte|char|int|long element */
+/* with short|byte|char|int|long|float|double element */
 package at.yawk.numaec;
 
 import org.eclipse.collections.api.ShortIterable;
 import org.eclipse.collections.api.factory.list.primitive.MutableShortListFactory;
 import org.eclipse.collections.api.list.primitive.MutableShortList;
 
-/* if int|long element //
+/* if int|long|double element //
 import java.util.stream.ShortStream;
 // endif */
 
@@ -69,7 +69,7 @@ public class MutableShortBufferListFactory implements MutableShortListFactory {
         return ofAll(iterable);
     }
 
-    /* if int|long element //
+    /* if int|long|double element //
     @Override
     public MutableShortList ofAll(ShortStream stream) {
         MutableShortList list = of();
