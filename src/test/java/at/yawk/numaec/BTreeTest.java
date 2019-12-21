@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.eclipse.collections.api.list.primitive.LongList;
@@ -37,11 +38,59 @@ public final class BTreeTest {
 
     private LongList keysToList(BTree bTree) {
         MutableLongList list = LongLists.mutable.empty();
-        BTree.BTreeIterator iterator = bTree.iterator();
-        while (iterator.next()) {
-            list.add(iterator.getKey());
+        try (BTree.Cursor iterator = bTree.allocateCursor()) {
+            iterator.descendToStart();
+            while (iterator.next()) {
+                list.add(iterator.getKey());
+            }
         }
         return list;
+    }
+    
+    private void insert(BTree bTree, long key, long value) {
+        try (BTree.Cursor cursor = bTree.allocateCursor()) {
+            cursor.descendToKey(key);
+            Assert.assertFalse(cursor.elementFound());
+            cursor.simpleInsert(key, value);
+            cursor.balance();
+        }
+    }
+
+    private void replace(BTree bTree, long key, long value) {
+        try (BTree.Cursor cursor = bTree.allocateCursor()) {
+            cursor.descendToKey(key);
+            Assert.assertTrue(cursor.elementFound());
+            cursor.setValue(value);
+        }
+    }
+
+    private long remove(BTree bTree, long key) {
+        try (BTree.Cursor cursor = bTree.allocateCursor()) {
+            cursor.descendToKey(key);
+            Assert.assertTrue(cursor.elementFound());
+            long value = cursor.getValue();
+            cursor.simpleRemove();
+            cursor.balance();
+            return value;
+        }
+    }
+
+    private boolean isPresent(BTree bTree, long key) {
+        try (BTree.Cursor cursor = bTree.allocateCursor()) {
+            cursor.descendToKey(key);
+            return cursor.elementFound();
+        }
+    }
+    
+    private long findValue(BTree bTree, long key, LongSupplier defaultValue) {
+        try (BTree.Cursor cursor = bTree.allocateCursor()) {
+            cursor.descendToKey(key);
+            if (cursor.elementFound()) {
+                return cursor.getValue();
+            } else {
+                return defaultValue.getAsLong();
+            }
+        }
     }
 
     @DataProvider
@@ -79,7 +128,7 @@ public final class BTreeTest {
     @Test(dataProvider = "config", timeOut = 10)
     public void singleton(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
-        bTree.insert(1, 2);
+        insert(bTree, 1, 2);
         bTree.checkInvariants();
         Assert.assertEquals(bTree.toStringFlat(), "[1->2]");
     }
@@ -87,15 +136,15 @@ public final class BTreeTest {
     @Test(dataProvider = "config", timeOut = 50)
     public void sort(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
-        bTree.insert(1, 2);
+        insert(bTree, 1, 2);
         bTree.checkInvariants();
-        bTree.insert(3, 4);
+        insert(bTree, 3, 4);
         bTree.checkInvariants();
-        bTree.insert(0, 8);
+        insert(bTree, 0, 8);
         bTree.checkInvariants();
-        bTree.insert(2, 1);
+        insert(bTree, 2, 1);
         bTree.checkInvariants();
-        bTree.insert(1, 3);
+        replace(bTree, 1, 3);
         bTree.checkInvariants();
         Assert.assertEquals(bTree.toStringFlat(), "[0->8, 1->3, 2->1, 3->4]");
     }
@@ -106,7 +155,7 @@ public final class BTreeTest {
         BTree bTree = new BTreeImpl(config);
         int len = -1;
         for (int i = 0; ; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
             int newLen = bTree.toStringBlocksHex().length;
             if (len != -1 && len != newLen) { break; }
@@ -120,13 +169,13 @@ public final class BTreeTest {
         for (int i = 0; i < 1000; i++) {
             // test default value
             long l = ThreadLocalRandom.current().nextLong();
-            Assert.assertEquals(bTree.findValue(i, () -> l), l);
+            Assert.assertEquals(findValue(bTree, i, () -> l), l);
 
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         for (int i = 0; i < 1000; i++) {
-            Assert.assertEquals(bTree.findValue(i, () -> {
+            Assert.assertEquals(findValue(bTree, i, () -> {
                 throw new AssertionError();
             }), i);
         }
@@ -139,9 +188,9 @@ public final class BTreeTest {
         for (int i = 0; i < 1000; i++) {
             // test default value
             long l = ThreadLocalRandom.current().nextLong();
-            Assert.assertEquals(bTree.findValue(i, () -> l), l);
+            Assert.assertEquals(findValue(bTree, i, () -> l), l);
 
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             expected.add(i);
             bTree.checkInvariants();
 
@@ -153,15 +202,15 @@ public final class BTreeTest {
     public void replace(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i + 1);
+            replace(bTree, i, i + 1);
             bTree.checkInvariants();
         }
         for (int i = 0; i < 1000; i++) {
-            Assert.assertEquals(bTree.findValue(i, () -> {
+            Assert.assertEquals(findValue(bTree, i, () -> {
                 throw new AssertionError();
             }), i + 1);
         }
@@ -171,16 +220,16 @@ public final class BTreeTest {
     public void clear(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         bTree.clear();
         for (int i = 0; i < 1000; i++) {
             long l = ThreadLocalRandom.current().nextLong();
-            Assert.assertEquals(bTree.findValue(i, () -> l), l);
+            Assert.assertEquals(findValue(bTree, i, () -> l), l);
         }
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
     }
@@ -189,13 +238,13 @@ public final class BTreeTest {
     public void removeStart(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         for (int i = 0; i < 1000; i++) {
-            Assert.assertEquals(bTree.remove(i, -1), i);
+            Assert.assertEquals(remove(bTree, i), i);
             bTree.checkInvariants();
-            Assert.assertEquals(bTree.remove(i, -1), -1);
+            Assert.assertFalse(isPresent(bTree, i));
         }
     }
 
@@ -203,11 +252,11 @@ public final class BTreeTest {
     public void removeEnd(BTreeConfig config) {
         BTree bTree = new BTreeImpl(config);
         for (int i = 0; i < 1000; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         for (int i = 1000 - 1; i >= 0; i--) {
-            Assert.assertEquals(bTree.remove(i, -1), i);
+            Assert.assertEquals(remove(bTree, i), i);
             bTree.checkInvariants();
         }
     }
@@ -219,12 +268,12 @@ public final class BTreeTest {
             BTree bTree = new BTreeImpl(config);
             int n = 0;
             for (; bTree.levelCount < 3; n++) {
-                bTree.insert(n, n);
+                insert(bTree, n, n);
                 bTree.checkInvariants();
             }
             if (n < cutoff) { break; }
             for (int i = cutoff; i < n; i++) {
-                Assert.assertEquals(bTree.remove(i, -1), i);
+                Assert.assertEquals(remove(bTree, i), i);
                 bTree.checkInvariants();
             }
         }
@@ -236,7 +285,7 @@ public final class BTreeTest {
         List<Integer> indices = IntStream.range(0, 1000).boxed().collect(Collectors.toList());
         Collections.shuffle(indices, rng);
         for (Integer i : indices) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
     }
@@ -247,12 +296,12 @@ public final class BTreeTest {
         List<Integer> indices = IntStream.range(0, 1000).boxed().collect(Collectors.toList());
         Collections.shuffle(indices, rng);
         for (Integer i : indices) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
         }
         Collections.shuffle(indices, rng);
         for (Integer i : indices) {
-            Assert.assertEquals(bTree.remove(i, -1), i.longValue());
+            Assert.assertEquals(remove(bTree, i), i.longValue());
             bTree.checkInvariants();
         }
     }
@@ -273,7 +322,7 @@ public final class BTreeTest {
         // trigger at least one buffer resize
         int len = -1;
         for (int i = 0; ; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
             Assert.assertEquals(openCount.get(), 1);
             int newLen = bTree.toStringBlocksHex().length;
@@ -309,7 +358,7 @@ public final class BTreeTest {
         // trigger at least one buffer resize
         int len = -1;
         for (int i = 0; ; i++) {
-            bTree.insert(i, i);
+            insert(bTree, i, i);
             bTree.checkInvariants();
             Assert.assertEquals(openCount.get(), 1);
             int newLen = bTree.toStringBlocksHex().length;
@@ -329,7 +378,7 @@ public final class BTreeTest {
         BTreeImpl bTree = new BTreeImpl(config);
         int maxEntries = 64 * 256 / 6;
         for (int i = 0; i < maxEntries; i++) {
-            bTree.insert(i, i & 0xff);
+            insert(bTree, i, i & 0xff);
             bTree.checkInvariants();
         }
     }

@@ -2,7 +2,6 @@ package at.yawk.numaec;
 
 import java.io.Closeable;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.LongSupplier;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.set.primitive.MutableLongSet;
 import org.eclipse.collections.impl.factory.primitive.LongLists;
@@ -134,7 +133,7 @@ abstract class BTree {
 
     }
 
-    private Cursor allocateCursor() {
+    public Cursor allocateCursor() {
         Cursor cursor = reuseCursor.getAndSet(null);
         if (cursor == null) {
             return new Cursor();
@@ -205,36 +204,6 @@ abstract class BTree {
         uset(baseAddress + blockSize - leafItemCountSize - pointerSize, pointerSize, nextLeafPtr);
     }
 
-    public long findValue(long key, LongSupplier defaultValue) {
-        long blockPtr = rootPtr;
-        for (int level = 0; level < levelCount - 1; level++) {
-            long index = blockSearch(false, blockPtr, key);
-            if (index >= 0) {
-                if (entryMustBeInLeaf) {
-                    blockPtr = readBranchNextPointer(blockPtr, index);
-                } else {
-                    return readBranchValue(blockPtr, index);
-                }
-            } else {
-                long insertionIndex = ~index;
-                blockPtr = readBranchPrevPointer(blockPtr, insertionIndex);
-            }
-        }
-        long index;
-        if (blockPtr == NULL) {
-            if (levelCount != 0) { throw new AssertionError(); }
-            // empty tree
-            index = -1;
-        } else {
-            index = blockSearch(true, blockPtr, key);
-        }
-        if (index >= 0) {
-            return readLeafValue(blockPtr, index);
-        } else {
-            return defaultValue.getAsLong();
-        }
-    }
-
     /**
      * Search for a key in a block.
      *
@@ -260,50 +229,6 @@ abstract class BTree {
             }
         }
         return ~low;
-    }
-
-    public BTreeIterator iterator() {
-        Cursor cursor = new Cursor();
-        cursor.descendToImmediateRightLeaf();
-        return cursor;
-    }
-
-    public void insert(long key, long value) {
-        if (rootPtr == NULL) {
-            if (levelCount != 0) {
-                throw new AssertionError();
-            }
-            // first leaf
-            rootPtr = allocatePage();
-            if (storeNextPointer) {
-                setNextLeafPtr(rootPtr, NULL);
-            }
-            setLeafItemCount(rootPtr, 1);
-            writeLeafEntry(rootPtr, 0, key, value);
-            levelCount = 1;
-        } else {
-            Cursor cursor = allocateCursor();
-            cursor.descendToKey(key);
-            if (cursor.elementFound()) {
-                cursor.update(key, value);
-            } else {
-                cursor.simpleInsert(key, value);
-                cursor.balance();
-            }
-        }
-    }
-
-    public long remove(long key, long defaultValue) {
-        Cursor cursor = allocateCursor();
-        cursor.descendToKey(key);
-        if (cursor.elementFound()) {
-            long value = cursor.getValue();
-            cursor.simpleRemove();
-            cursor.balance();
-            return value;
-        } else {
-            return defaultValue;
-        }
     }
 
     private void simpleBranchInsert(
@@ -520,17 +445,19 @@ abstract class BTree {
     @DoNotMutate
     String toStringFlat() {
         StringBuilder builder = new StringBuilder("[");
-        boolean first = true;
-        BTreeIterator iterator = iterator();
-        while (iterator.next()) {
-            if (first) {
-                first = false;
-            } else {
-                builder.append(", ");
+        try (Cursor iterator = new Cursor()) {
+            iterator.descendToStart();
+            boolean first = true;
+            while (iterator.next()) {
+                if (first) {
+                    first = false;
+                } else {
+                    builder.append(", ");
+                }
+                builder.append(iterator.getKey()).append("->").append(iterator.getValue());
             }
-            builder.append(iterator.getKey()).append("->").append(iterator.getValue());
+            return builder.append(']').toString();
         }
-        return builder.append(']').toString();
     }
 
     @DoNotMutate
@@ -674,17 +601,7 @@ abstract class BTree {
 
     protected abstract long readLeafValue(LargeByteBuffer lbb, long address);
 
-    public interface BTreeIterator {
-        boolean next();
-
-        long getKey();
-
-        long getValue();
-
-        void setValue(long value);
-    }
-
-    public class Cursor implements BTreeIterator, Closeable {
+    public class Cursor implements Closeable {
         long[] trace;
         long[] trace2;
         long[] traceIndex;
@@ -799,11 +716,38 @@ abstract class BTree {
             }
         }
 
+        /**
+         * Descend to before the start of the first leaf. After this call the tree can be iterated using
+         * {@link #next()}.
+         */
+        public void descendToStart() {
+            if (level != -1) { throw new IllegalStateException(); }
+            descendToImmediateRightLeaf();
+        }
+
         public boolean elementFound() {
             return level >= 0 && traceIndex[level] >= 0;
         }
 
         public void simpleInsert(long key, long value) {
+            if (level == -1) {
+                if (levelCount != 0) { throw new IllegalStateException(); }
+                // first element in the tree
+                rootPtr = allocatePage();
+                if (storeNextPointer) {
+                    setNextLeafPtr(rootPtr, NULL);
+                }
+                setLeafItemCount(rootPtr, 1);
+                writeLeafEntry(rootPtr, 0, key, value);
+                levelCount = 1;
+
+                init();
+                this.level = 0;
+                this.trace[0] = rootPtr;
+                this.traceIndex[0] = 0;
+                return;
+            }
+
             if (!inLeaf()) { throw new IllegalStateException(); }
             if (elementFound()) { throw new IllegalStateException(); }
             simpleLeafInsert(trace[level], ~traceIndex[level], key, value);
@@ -818,14 +762,12 @@ abstract class BTree {
             }
         }
 
-        @Override
         public long getKey() {
             if (traceIndex[level] < 0 || traceIndex[level] >= getItemCount()) { throw new IllegalStateException(); }
             return inLeaf() ? readLeafKey(trace[level], traceIndex[level]) :
                     readBranchKey(trace[level], traceIndex[level]);
         }
 
-        @Override
         public long getValue() {
             if (traceIndex[level] < 0 || traceIndex[level] >= getItemCount()) { throw new IllegalStateException(); }
             return inLeaf() ?
@@ -837,7 +779,6 @@ abstract class BTree {
             return entryMustBeInLeaf ? 0 : getValue();
         }
 
-        @Override
         public void setValue(long value) {
             long key = getKey();
             if (inLeaf()) {
@@ -890,7 +831,6 @@ abstract class BTree {
             return true;
         }
 
-        @Override
         public boolean next() {
             if (levelCount == 0) {
                 return false;
@@ -1266,6 +1206,7 @@ abstract class BTree {
          */
         @Override
         public void close() {
+            init();
             reuseCursor.set(this);
         }
     }
