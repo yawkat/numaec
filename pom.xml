@@ -56,6 +56,7 @@
                     <targetClasses>
                         <param>at.yawk.numaec.ByteBufferBackedLargeByteBuffer</param>
                         <param>at.yawk.numaec.LongBufferList*</param>
+                        <param>at.yawk.numaec.BTree*</param>
                     </targetClasses>
                     <targetTests>
                         <param>at.yawk.numaec.*</param>
@@ -67,6 +68,10 @@
                         <mutator>ALL</mutator>
                     </mutators>
                     <timeoutConstant>500</timeoutConstant>
+                    <threads>24</threads>
+                    <jvmArgs>
+                        <value>-Xmx900M</value>
+                    </jvmArgs>
                 </configuration>
             </plugin>
         </plugins>
