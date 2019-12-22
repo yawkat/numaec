@@ -11,7 +11,7 @@ import org.testng.annotations.Test;
 import static at.yawk.numaec.ListTest.assertThrows;
 
 public class JoinedLargeByteBufferTest {
-    private static LargeByteBuffer fromHex(String hex) {
+    static LargeByteBuffer fromHex(String hex) {
         return new ByteBufferBackedLargeByteBuffer(
                 new ByteBuffer[]{ ByteBufferBackedLargeByteBufferTest.fromHex(hex) }, 0x100000);
     }
