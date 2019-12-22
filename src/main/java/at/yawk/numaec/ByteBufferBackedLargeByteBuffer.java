@@ -1,5 +1,6 @@
 package at.yawk.numaec;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
@@ -106,17 +107,18 @@ public class ByteBufferBackedLargeByteBuffer extends GenericJoinedBuffer<ByteBuf
         int oldDestLimit = dest.limit();
         int oldSrcLimit = src.limit();
 
-        src.position(Math.toIntExact(fromIndex));
-        dest.position(Math.toIntExact(toIndex));
-        src.limit(Math.toIntExact(src.position() + length));
-        dest.limit(Math.toIntExact(dest.position() + length));
+        // casts are necessary for java 8 compat
+        ((Buffer) src).position(Math.toIntExact(fromIndex));
+        ((Buffer) dest).position(Math.toIntExact(toIndex));
+        ((Buffer) src).limit(Math.toIntExact(src.position() + length));
+        ((Buffer) dest).limit(Math.toIntExact(dest.position() + length));
 
         dest.put(src);
 
-        dest.position(0);
-        src.position(0);
-        dest.limit(oldDestLimit);
-        src.limit(oldSrcLimit);
+        ((Buffer) dest).position(0);
+        ((Buffer) src).position(0);
+        ((Buffer) dest).limit(oldDestLimit);
+        ((Buffer) src).limit(oldSrcLimit);
     }
 
     @Override
