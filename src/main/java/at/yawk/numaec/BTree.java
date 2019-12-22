@@ -377,6 +377,11 @@ abstract class BTree {
         if (rootPtr != NULL) {
             checkInvariants(Long.MAX_VALUE, rootPtr, 0, LongLists.mutable.empty(), LongSets.mutable.empty());
         }
+        @SuppressWarnings("resource")
+        Cursor cursor = reuseCursor.get();
+        if (cursor != null) {
+            cursor.checkCursorInvariants();
+        }
     }
 
     @DoNotMutate
@@ -1197,6 +1202,13 @@ abstract class BTree {
                 } else {
                     if (elementFound()) { throw new AssertionError(); }
                 }
+            }
+            if (levelCount != trace.length || levelCount != traceIndex.length ||
+                levelCount != trace2.length || levelCount != traceIndex2.length) {
+                throw new AssertionError();
+            }
+            if (level >= levelCount || level < -1) {
+                throw new AssertionError();
             }
             return true;
         }

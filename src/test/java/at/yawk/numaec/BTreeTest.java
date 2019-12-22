@@ -23,7 +23,7 @@ public final class BTreeTest {
         return new ByteBufferBackedLargeByteBuffer(new ByteBuffer[]{ ByteBuffer.allocate(sizeInt) }, 0x1000000);
     };
 
-    private List<BTreeConfig> configList() {
+    static List<BTreeConfig> configList() {
         return Arrays.asList(
                 BTreeConfig.builder().blockSize(64).storeNextPointer(false).entryMustBeInLeaf(true).build(),
                 BTreeConfig.builder().blockSize(64).storeNextPointer(true).entryMustBeInLeaf(true).build(),

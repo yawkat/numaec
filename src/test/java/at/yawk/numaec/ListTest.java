@@ -13,7 +13,7 @@ import org.testng.annotations.Test;
 
 @SuppressWarnings("resource")
 public final class ListTest {
-    private static void assertThrows(Class<?> exception, Runnable r) {
+    static void assertThrows(Class<?> exception, Runnable r) {
         try {
             r.run();
         } catch (Exception e) {
