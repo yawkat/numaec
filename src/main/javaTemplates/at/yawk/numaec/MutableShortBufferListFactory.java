@@ -3,7 +3,6 @@ package at.yawk.numaec;
 
 import org.eclipse.collections.api.ShortIterable;
 import org.eclipse.collections.api.factory.list.primitive.MutableShortListFactory;
-import org.eclipse.collections.api.list.primitive.MutableShortList;
 
 /* if int|long|double element //
 import java.util.stream.ShortStream;
@@ -12,52 +11,60 @@ import java.util.stream.ShortStream;
 public class MutableShortBufferListFactory implements MutableShortListFactory {
     private final LargeByteBufferAllocator allocator;
 
-    public MutableShortBufferListFactory(LargeByteBufferAllocator allocator) {
+    private MutableShortBufferListFactory(LargeByteBufferAllocator allocator) {
         this.allocator = allocator;
     }
 
-    @Override
-    public MutableShortList empty() {
-        return new ShortBufferList.Mutable(allocator);
+    public static MutableShortBufferListFactory withAllocator(LargeByteBufferAllocator allocator) {
+        return new MutableShortBufferListFactory(allocator);
     }
 
     @Override
-    public MutableShortList of() {
+    public MutableShortBufferList empty() {
+        return new ShortBufferListImpl.Mutable(allocator);
+    }
+
+    public MutableShortBufferList emptyWithInitialCapacity(int initialCapacity) {
+        return new ShortBufferListImpl.Mutable(allocator, initialCapacity);
+    }
+
+    @Override
+    public MutableShortBufferList of() {
         return empty();
     }
 
     @Override
-    public MutableShortList with() {
+    public MutableShortBufferList with() {
         return empty();
     }
 
     @Override
-    public MutableShortList of(short... items) {
-        ShortBufferList.Mutable list = new ShortBufferList.Mutable(allocator, items.length);
+    public MutableShortBufferList of(short... items) {
+        MutableShortBufferList list = emptyWithInitialCapacity(items.length);
         list.addAll(items);
         return list;
     }
 
     @Override
-    public MutableShortList with(short... items) {
+    public MutableShortBufferList with(short... items) {
         return of(items);
     }
 
     @Override
-    public MutableShortList ofAll(ShortIterable items) {
-        ShortBufferList.Mutable list = new ShortBufferList.Mutable(allocator, items.size());
+    public MutableShortBufferList ofAll(ShortIterable items) {
+        MutableShortBufferList list = emptyWithInitialCapacity(items.size());
         list.addAll(items);
         return list;
     }
 
     @Override
-    public MutableShortList withAll(ShortIterable items) {
+    public MutableShortBufferList withAll(ShortIterable items) {
         return ofAll(items);
     }
 
     @Override
-    public MutableShortList ofAll(Iterable<Short> iterable) {
-        MutableShortList list = of();
+    public MutableShortBufferList ofAll(Iterable<Short> iterable) {
+        MutableShortBufferList list = of();
         for (Short element : iterable) {
             list.add(element);
         }
@@ -65,20 +72,20 @@ public class MutableShortBufferListFactory implements MutableShortListFactory {
     }
 
     @Override
-    public MutableShortList withAll(Iterable<Short> iterable) {
+    public MutableShortBufferList withAll(Iterable<Short> iterable) {
         return ofAll(iterable);
     }
 
     /* if int|long|double element //
     @Override
-    public MutableShortList ofAll(ShortStream stream) {
-        MutableShortList list = of();
+    public MutableShortBufferList ofAll(ShortStream stream) {
+        MutableShortBufferList list = of();
         stream.forEach(list::add);
         return list;
     }
 
     @Override
-    public MutableShortList withAll(ShortStream stream) {
+    public MutableShortBufferList withAll(ShortStream stream) {
         return ofAll(stream);
     }
     // endif */

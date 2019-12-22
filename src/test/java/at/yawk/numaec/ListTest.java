@@ -24,6 +24,10 @@ public final class ListTest {
         }
         Assert.fail("Expected exception " + exception.getName());
     }
+    
+    private static MutableLongList newMutable(LargeByteBufferAllocator allocator) {
+        return MutableLongBufferListFactory.withAllocator(allocator).empty();
+    }
 
     @DataProvider
     public Object[][] allocator() {
@@ -57,7 +61,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void iterate(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -73,7 +77,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void iterateRemove(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -93,7 +97,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void forEach(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -105,7 +109,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void forEachWithIndex(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -120,7 +124,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void each(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -132,7 +136,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void get(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -147,7 +151,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void toArray(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -157,7 +161,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void contains(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -170,11 +174,11 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void dotProduct(LargeByteBufferAllocator allocator) {
-        MutableLongList list1 = LongBufferList.newMutable(allocator);
+        MutableLongList list1 = newMutable(allocator);
         list1.add(1);
         list1.add(2);
         list1.add(3);
-        MutableLongList list2 = LongBufferList.newMutable(allocator);
+        MutableLongList list2 = newMutable(allocator);
         list2.add(300000000000L);
         list2.add(200000000000L);
         list2.add(100000000000L);
@@ -187,10 +191,10 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator", expectedExceptions = IllegalArgumentException.class)
     public void dotProductFail1(LargeByteBufferAllocator allocator) {
-        MutableLongList list1 = LongBufferList.newMutable(allocator);
+        MutableLongList list1 = newMutable(allocator);
         list1.add(1);
         list1.add(2);
-        MutableLongList list2 = LongBufferList.newMutable(allocator);
+        MutableLongList list2 = newMutable(allocator);
         list2.add(300000000000L);
         list2.add(200000000000L);
         list2.add(100000000000L);
@@ -200,11 +204,11 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator", expectedExceptions = IllegalArgumentException.class)
     public void dotProductFail2(LargeByteBufferAllocator allocator) {
-        MutableLongList list1 = LongBufferList.newMutable(allocator);
+        MutableLongList list1 = newMutable(allocator);
         list1.add(1);
         list1.add(2);
         list1.add(3);
-        MutableLongList list2 = LongBufferList.newMutable(allocator);
+        MutableLongList list2 = newMutable(allocator);
         list2.add(300000000000L);
         list2.add(200000000000L);
 
@@ -213,7 +217,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void binarySearch(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(5);
         list.add(10);
@@ -229,7 +233,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void indexOf(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(2);
@@ -243,7 +247,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void lastIndexOf(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(2);
@@ -257,7 +261,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void getLast(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         assertThrows(IndexOutOfBoundsException.class, list::getLast);
         list.add(1);
         list.add(2);
@@ -268,7 +272,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void getFirst(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         assertThrows(IndexOutOfBoundsException.class, list::getFirst);
         list.add(1);
         list.add(2);
@@ -279,7 +283,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void detectIfNone(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -290,7 +294,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void count(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -300,7 +304,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void anySatisfy(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         Assert.assertFalse(list.anySatisfy(v -> true));
         list.add(1);
         list.add(2);
@@ -313,7 +317,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void allSatisfy(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         Assert.assertTrue(list.allSatisfy(v -> false));
         list.add(1);
         list.add(2);
@@ -326,7 +330,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void noneSatisfy(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         Assert.assertTrue(list.noneSatisfy(v -> true));
         list.add(1);
         list.add(2);
@@ -339,7 +343,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void injectInto(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -349,7 +353,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void injectIntoWithIndex(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -359,7 +363,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void sum(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(2);
         list.add(3);
@@ -369,7 +373,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void max(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         assertThrows(IndexOutOfBoundsException.class, list::max);
         list.add(1);
         Assert.assertEquals(list.max(), 1);
@@ -381,7 +385,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void min(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         assertThrows(IndexOutOfBoundsException.class, list::min);
         list.add(2);
         Assert.assertEquals(list.min(), 2);
@@ -393,7 +397,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void size(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         Assert.assertEquals(list.size(), 0);
         list.add(1);
         list.add(3);
@@ -404,7 +408,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void toString(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -414,7 +418,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void addAtIndex(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -426,7 +430,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void addAllAtIndex(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -441,7 +445,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void addAllAtIndexIterable(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -453,7 +457,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void removeAtIndex(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -465,7 +469,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void set(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -477,7 +481,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void addAll(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -487,7 +491,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void addAllItr(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -497,7 +501,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void remove(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(3);
@@ -510,7 +514,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void clear(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -520,7 +524,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void with(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -530,7 +534,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void without(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -540,7 +544,7 @@ public final class ListTest {
 
     @Test(dataProvider = "allocator")
     public void withAll(LargeByteBufferAllocator allocator) {
-        MutableLongList list = LongBufferList.newMutable(allocator);
+        MutableLongList list = newMutable(allocator);
         list.add(1);
         list.add(3);
         list.add(2);
@@ -569,7 +573,7 @@ public final class ListTest {
             }
         }
 
-        LongBufferList.Mutable list = LongBufferList.newMutable(new LargeByteBufferAllocator() {
+        MutableLongList list = newMutable(new LargeByteBufferAllocator() {
             boolean allocated = false;
 
             @Override
@@ -606,12 +610,7 @@ public final class ListTest {
             }
         }
 
-        LongBufferList.Mutable list = LongBufferList.newMutable(new LargeByteBufferAllocator() {
-            @Override
-            public LargeByteBuffer allocate(long size) {
-                return new TestBuffer(size);
-            }
-        });
+        MutableLongList list = newMutable(TestBuffer::new);
         while (closed[0] == 0) {
             list.add(0);
         }
@@ -622,7 +621,7 @@ public final class ListTest {
     @Test(dataProvider = "allocator")
     public void equals(LargeByteBufferAllocator allocator) {
         Assert.assertEquals(
-                LongBufferList.newMutable(allocator).with(1).with(2).with(3),
+                newMutable(allocator).with(1).with(2).with(3),
                 LongLists.mutable.empty().with(1).with(2).with(3)
         );
     }
@@ -630,7 +629,7 @@ public final class ListTest {
     @Test(dataProvider = "allocator")
     public void hashCode(LargeByteBufferAllocator allocator) {
         Assert.assertEquals(
-                LongBufferList.newMutable(allocator).with(1).with(2).with(3).hashCode(),
+                newMutable(allocator).with(1).with(2).with(3).hashCode(),
                 LongLists.mutable.empty().with(1).with(2).with(3).hashCode()
         );
     }
