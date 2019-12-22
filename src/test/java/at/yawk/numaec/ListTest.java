@@ -610,7 +610,7 @@ public final class ListTest {
             }
         }
 
-        MutableLongList list = newMutable(TestBuffer::new);
+        MutableLongList list = newMutable(size -> new TestBuffer(size));
         while (closed[0] == 0) {
             list.add(0);
         }
