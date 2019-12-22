@@ -55,6 +55,7 @@
                 <configuration>
                     <targetClasses>
                         <param>at.yawk.numaec.ByteBufferBackedLargeByteBuffer</param>
+                        <param>at.yawk.numaec.GenericJoinedBuffer</param>
                         <param>at.yawk.numaec.LongBufferList*</param>
                         <param>at.yawk.numaec.IntDoubleBTreeMap*</param>
                         <param>at.yawk.numaec.BTree*</param>

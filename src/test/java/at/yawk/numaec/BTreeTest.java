@@ -306,67 +306,6 @@ public final class BTreeTest {
         }
     }
 
-    @Test(dataProvider = "config")
-    public void closesAfterResize(BTreeConfig config) {
-        AtomicInteger openCount = new AtomicInteger();
-        BTree bTree = new BTreeImpl(size -> {
-            openCount.incrementAndGet();
-            return new ByteBufferBackedLargeByteBuffer(new ByteBuffer[]{ ByteBuffer.allocate(Math.toIntExact(size)) },
-                                                       0x1000000) {
-                @Override
-                public void close() {
-                    openCount.decrementAndGet();
-                }
-            };
-        }, config);
-        // trigger at least one buffer resize
-        int len = -1;
-        for (int i = 0; ; i++) {
-            insert(bTree, i, i);
-            bTree.checkInvariants();
-            Assert.assertEquals(openCount.get(), 1);
-            int newLen = bTree.toStringBlocksHex().length;
-            if (len != -1 && len != newLen) { break; }
-            len = newLen;
-        }
-    }
-
-    @Test(dataProvider = "config")
-    public void doesNotCloseAfterRealloc(BTreeConfig config) {
-        AtomicInteger openCount = new AtomicInteger();
-        class BufImpl extends ByteBufferBackedLargeByteBuffer {
-            public BufImpl(long size) {
-                super(new ByteBuffer[]{ ByteBuffer.allocate(Math.toIntExact(size)) }, 0x1000000);
-            }
-
-            @Override
-            public void close() {
-                Assert.fail();
-            }
-
-            @Override
-            public LargeByteBuffer reallocate(long newSize) {
-                BufImpl reallocated = new BufImpl(newSize);
-                reallocated.copyFrom(this, 0, 0, this.size());
-                return reallocated;
-            }
-        }
-        BTree bTree = new BTreeImpl(size -> {
-            openCount.incrementAndGet();
-            return new BufImpl(size);
-        }, config);
-        // trigger at least one buffer resize
-        int len = -1;
-        for (int i = 0; ; i++) {
-            insert(bTree, i, i);
-            bTree.checkInvariants();
-            Assert.assertEquals(openCount.get(), 1);
-            int newLen = bTree.toStringBlocksHex().length;
-            if (len != -1 && len != newLen) { break; }
-            len = newLen;
-        }
-    }
-
     @Test(expectedExceptions = IllegalStateException.class,
             // check exact message so we don't run into one of the other ISEs
             expectedExceptionsMessageRegExp = BTree.MESSAGE_POINTER_TOO_SMALL)

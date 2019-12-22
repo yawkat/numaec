@@ -3,18 +3,9 @@ package at.yawk.numaec;
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 
-public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
+public class ByteBufferBackedLargeByteBuffer extends GenericJoinedBuffer<ByteBuffer> implements LargeByteBuffer {
     private final ByteBuffer[] buffers;
     private final int componentSize;
-
-    private int offset(long position) {
-        return (int) (position % componentSize);
-    }
-
-    private ByteBuffer buffer(long position) throws IndexOutOfBoundsException {
-        long bufferI = position / componentSize;
-        return buffers[(int) bufferI];
-    }
 
     public ByteBufferBackedLargeByteBuffer(ByteBuffer[] buffers, int componentSize) {
         if (Integer.bitCount(componentSize) != 1) {
@@ -25,43 +16,58 @@ public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
     }
 
     @Override
+    long offset(long position) {
+        return offsetInt(position);
+    }
+
+    private int offsetInt(long position) {
+        return (int) (position % componentSize);
+    }
+
+    @Override
+    ByteBuffer component(long position) throws IndexOutOfBoundsException {
+        long bufferI = position / componentSize;
+        return buffers[(int) bufferI];
+    }
+
+    @Override
     public byte getByte(long position) throws IndexOutOfBoundsException {
-        return buffer(position).get(offset(position));
+        return component(position).get(offsetInt(position));
     }
 
     @Override
     public short getShort(long position) throws IndexOutOfBoundsException {
-        return buffer(position).getShort(offset(position));
+        return component(position).getShort(offsetInt(position));
     }
 
     @Override
     public int getInt(long position) throws IndexOutOfBoundsException {
-        return buffer(position).getInt(offset(position));
+        return component(position).getInt(offsetInt(position));
     }
 
     @Override
     public long getLong(long position) throws IndexOutOfBoundsException {
-        return buffer(position).getLong(offset(position));
+        return component(position).getLong(offsetInt(position));
     }
 
     @Override
     public void setByte(long position, byte value) throws IndexOutOfBoundsException, ReadOnlyBufferException {
-        buffer(position).put(offset(position), value);
+        component(position).put(offsetInt(position), value);
     }
 
     @Override
     public void setShort(long position, short value) throws IndexOutOfBoundsException, ReadOnlyBufferException {
-        buffer(position).putShort(offset(position), value);
+        component(position).putShort(offsetInt(position), value);
     }
 
     @Override
     public void setInt(long position, int value) throws IndexOutOfBoundsException, ReadOnlyBufferException {
-        buffer(position).putInt(offset(position), value);
+        component(position).putInt(offsetInt(position), value);
     }
 
     @Override
     public void setLong(long position, long value) throws IndexOutOfBoundsException, ReadOnlyBufferException {
-        buffer(position).putLong(offset(position), value);
+        component(position).putLong(offsetInt(position), value);
     }
 
     @Override
@@ -70,82 +76,58 @@ public class ByteBufferBackedLargeByteBuffer implements LargeByteBuffer {
     }
 
     @Override
-    public void copyFrom(LargeByteBuffer from, long fromIndex, long toIndex, long length)
-            throws ReadOnlyBufferException, UnsupportedOperationException, IndexOutOfBoundsException {
-        if (length < 0) {
-            throw new IllegalArgumentException("length < 0");
+    long nextRegionStart(long position) {
+        return currentRegionStart(position) + componentSize;
+    }
+
+    @Override
+    void copyLargeToComponent(
+            ByteBuffer dest,
+            long toIndex,
+            LargeByteBuffer src,
+            long fromIndex,
+            long length
+    ) {
+        throw new UnsupportedOperationException("Incompatible buffers");
+    }
+
+    @Override
+    void copyBetweenComponents(ByteBuffer dest, long toIndex, ByteBuffer src, long fromIndex, long length) {
+        if (length < 0 || length > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("length");
         }
-        if (length == 0) {
-            return;
-        }
-        if (!(from instanceof ByteBufferBackedLargeByteBuffer)) {
-            throw new UnsupportedOperationException();
-        }
-        ByteBufferBackedLargeByteBuffer other = (ByteBufferBackedLargeByteBuffer) from;
-        if (other.componentSize != this.componentSize) {
-            throw new UnsupportedOperationException();
-        }
-        if (fromIndex + length > other.size() ||
-                toIndex + length > this.size()) {
+        if (src.limit() < fromIndex + length || dest.limit() < toIndex + length) {
             throw new IndexOutOfBoundsException();
         }
-        if (fromIndex >= toIndex) {
-            while (length > 0) {
-                ByteBuffer src = other.buffer(fromIndex);
-                ByteBuffer dest = this.buffer(toIndex);
-                if (dest == src) {
-                    src = src.duplicate();
-                }
+        if (dest == src) {
+            dest = dest.duplicate();
+        }
 
-                dest.position(this.offset(toIndex));
-                src.position(other.offset(fromIndex));
-                try {
-                    int toCopy = (int) Math.min(src.remaining(), Math.min(dest.remaining(), length));
-                    if (toCopy == 0) {
-                        throw new IndexOutOfBoundsException();
-                    }
+        int oldDestLimit = dest.limit();
+        int oldSrcLimit = src.limit();
 
-                    int oldLimit = src.limit();
-                    src.limit(src.position() + toCopy);
-                    dest.put(src);
-                    src.limit(oldLimit);
+        src.position(Math.toIntExact(fromIndex));
+        dest.position(Math.toIntExact(toIndex));
+        src.limit(Math.toIntExact(src.position() + length));
+        dest.limit(Math.toIntExact(dest.position() + length));
 
-                    fromIndex += toCopy;
-                    toIndex += toCopy;
-                    length -= toCopy;
-                } finally {
-                    dest.position(0);
-                    src.position(0);
-                }
-            }
-        } else {
-            while (length > 0) {
-                ByteBuffer src = other.buffer(fromIndex + length - 1);
-                ByteBuffer dest = this.buffer(toIndex + length - 1);
-                if (dest == src) {
-                    src = src.duplicate();
-                }
-                int toCopy = Math.min(
-                        offset(toIndex + length - 1) + 1,
-                        (int) Math.min(length, offset(fromIndex + length - 1) + 1)
-                );
-                if (toCopy == 0) {
-                    throw new IndexOutOfBoundsException();
-                }
-                dest.position(this.offset(toIndex + length - toCopy));
-                src.position(other.offset(fromIndex + length - toCopy));
-                try {
-                    int oldLimit = src.limit();
-                    src.limit(src.position() + toCopy);
-                    dest.put(src);
-                    src.limit(oldLimit);
-                } finally {
-                    dest.position(0);
-                    src.position(0);
-                }
+        dest.put(src);
 
-                length -= toCopy;
+        dest.position(0);
+        src.position(0);
+        dest.limit(oldDestLimit);
+        src.limit(oldSrcLimit);
+    }
+
+    @Override
+    GenericJoinedBuffer<ByteBuffer> convertToCompatible(LargeByteBuffer other) {
+        if (other instanceof ByteBufferBackedLargeByteBuffer) {
+            ByteBufferBackedLargeByteBuffer compatible = (ByteBufferBackedLargeByteBuffer) other;
+            // right now only same component size is supported
+            if (compatible.componentSize == this.componentSize) {
+                return compatible;
             }
         }
+        return null;
     }
 }

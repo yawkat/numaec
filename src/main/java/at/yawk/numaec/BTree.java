@@ -31,21 +31,20 @@ abstract class BTree {
     private final boolean storeNextPointer;
     private final boolean entryMustBeInLeaf;
 
-    private final LargeByteBufferAllocator allocator;
-
-    private LargeByteBuffer buf = LargeByteBuffer.EMPTY;
+    private final LargeByteBuffer buf;
     // visible for testing
     int levelCount = 0;
     private long rootPtr = NULL;
 
     private final long maxPage;
-    private long allocationBumpPointer = 0;
+    private final PageAllocator allocator;
 
     private final AtomicReference<Cursor> reuseCursor = new AtomicReference<>();
 
     @SuppressWarnings({ "UnnecessaryLocalVariable", "TooBroadScope" })
     BTree(LargeByteBufferAllocator allocator, BTreeConfig config, int branchEntrySize, int leafEntrySize) {
-        this.allocator = allocator;
+        this.allocator = new PageAllocator(allocator, config.regionSize, config.blockSize);
+        this.buf = this.allocator.getBufferView();
         this.blockSize = config.blockSize;
         this.pointerSize = config.pointerSize;
         this.leafEntrySize = leafEntrySize;
@@ -100,37 +99,16 @@ abstract class BTree {
      * @return The page pointer
      */
     private long allocatePage() {
-        long ptr = allocationBumpPointer++;
-        long currentBlockCount = buf.size() / blockSize;
-        if (ptr >= currentBlockCount) {
-            long newBlockCount = currentBlockCount == 0 ?
-                    INITIAL_BLOCK_COUNT :
-                    currentBlockCount + (currentBlockCount >> 1L);
-            long newSize = newBlockCount * blockSize;
-
-            LargeByteBuffer reallocated = buf.reallocate(newSize);
-            if (reallocated == null) {
-                LargeByteBuffer close = allocator.allocate(newSize);
-                try {
-                    close.copyFrom(buf, 0, 0, buf.size());
-                    LargeByteBuffer tmp = buf;
-                    buf = close;
-                    close = tmp;
-                } finally {
-                    close.close();
-                }
-            } else {
-                buf = reallocated;
-            }
-        }
+        int ptr = allocator.allocatePage();
         if (ptr > maxPage) {
+            allocator.freePage(ptr);
             throw new IllegalStateException(MESSAGE_POINTER_TOO_SMALL);
         }
         return ptr;
     }
 
     private void freePage(long page) {
-
+        allocator.freePage(Math.toIntExact(page));
     }
 
     public Cursor allocateCursor() {
@@ -364,9 +342,9 @@ abstract class BTree {
     }
 
     public void clear() {
-        allocationBumpPointer = 0;
         rootPtr = NULL;
         levelCount = 0;
+        allocator.freeAllPages();
     }
 
     /**

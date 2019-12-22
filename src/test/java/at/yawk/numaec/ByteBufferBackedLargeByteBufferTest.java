@@ -2,13 +2,18 @@ package at.yawk.numaec;
 
 import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static at.yawk.numaec.ListTest.assertThrows;
+
 public class ByteBufferBackedLargeByteBufferTest {
-    private static ByteBuffer fromHex(String hex) {
+    static ByteBuffer fromHex(String hex) {
         try {
             ByteBuffer bb = ByteBuffer.wrap(Hex.decodeHex(hex.replaceAll("\\s", "")));
             bb.limit(bb.capacity());
@@ -24,18 +29,6 @@ public class ByteBufferBackedLargeByteBufferTest {
             builder.append(Hex.encodeHex(new byte[]{ bb.getByte(i) }));
         }
         return builder.toString();
-    }
-
-    private static void assertThrows(Class<?> exception, Runnable r) {
-        try {
-            r.run();
-        } catch (Exception e) {
-            if (exception.isInstance(e)) {
-                return;
-            }
-            throw e;
-        }
-        Assert.fail("Expected exception " + exception.getName());
     }
 
     @Test
@@ -131,54 +124,62 @@ public class ByteBufferBackedLargeByteBufferTest {
         }
     }
 
-    @Test
-    public void copy() {
-        ByteBufferBackedLargeByteBuffer bb1 = new ByteBufferBackedLargeByteBuffer(
-                new ByteBuffer[]{ fromHex("00010203"), fromHex("0405") }, 4);
-        for (int srcOffset = 0; srcOffset < 6; srcOffset++) {
-            for (int dstOffset = 0; dstOffset < 6; dstOffset++) {
-                int lengthLimit = 6 - Math.max(srcOffset, dstOffset);
-                for (int length = 1; length <= lengthLimit; length++) {
-                    ByteBufferBackedLargeByteBuffer bb2 = new ByteBufferBackedLargeByteBuffer(
-                            new ByteBuffer[]{ fromHex("00000000"), fromHex("0000") }, 4);
-                    bb2.copyFrom(bb1, srcOffset, dstOffset, length);
-                    for (int i = 0; i < 6; i++) {
-                        if (i < dstOffset || i >= dstOffset + length) {
-                            Assert.assertEquals(bb2.getByte(i), 0);
-                        } else {
-                            Assert.assertEquals(bb2.getByte(i), i - dstOffset + srcOffset);
-                        }
-                    }
+    private static final int COPY_LENGTH = 10;
+
+    @DataProvider
+    public Object[][] copyIndices() {
+        List<Object[]> out = new ArrayList<>();
+        for (int srcOffset = 0; srcOffset < COPY_LENGTH; srcOffset++) {
+            for (int dstOffset = 0; dstOffset < COPY_LENGTH; dstOffset++) {
+                for (int length = 1; length < COPY_LENGTH - Math.max(srcOffset, dstOffset); length++) {
+                    out.add(new Object[]{ srcOffset, dstOffset, length });
                 }
-                ByteBufferBackedLargeByteBuffer bb2 = new ByteBufferBackedLargeByteBuffer(
-                        new ByteBuffer[]{ fromHex("00000000"), fromHex("0000") }, 4);
-                boolean error = false;
-                try {
-                    bb2.copyFrom(bb1, srcOffset, dstOffset, lengthLimit + 1);
-                } catch (IndexOutOfBoundsException e) {
-                    error = true;
-                }
-                Assert.assertTrue(error);
+            }
+        }
+        return out.toArray(new Object[0][]);
+    }
+
+    private static LargeByteBuffer makeSrcBuffer() {
+        return new ByteBufferBackedLargeByteBuffer(
+                new ByteBuffer[]{ fromHex("00010203"), fromHex("04050607"), fromHex("0809") }, 4);
+    }
+
+    private static LargeByteBuffer makeZeroBuffer() {
+        return new ByteBufferBackedLargeByteBuffer(
+                new ByteBuffer[]{ fromHex("00000000"), fromHex("00000000"), fromHex("0000") }, 4);
+    }
+
+    @Test(dataProvider = "copyIndices")
+    public void copy(int srcOffset, int dstOffset, int length) {
+        LargeByteBuffer bb1 = makeSrcBuffer();
+        LargeByteBuffer bb2 = makeZeroBuffer();
+        bb2.copyFrom(bb1, srcOffset, dstOffset, length);
+        for (int i = 0; i < 6; i++) {
+            if (i < dstOffset || i >= dstOffset + length) {
+                Assert.assertEquals(bb2.getByte(i), 0);
+            } else {
+                Assert.assertEquals(bb2.getByte(i), i - dstOffset + srcOffset);
             }
         }
     }
 
-    @Test
-    public void copySame() {
-        for (int srcOffset = 0; srcOffset < 6; srcOffset++) {
-            for (int dstOffset = 0; dstOffset < 6; dstOffset++) {
-                for (int length = 1; length < 6 - Math.max(srcOffset, dstOffset); length++) {
-                    ByteBufferBackedLargeByteBuffer bb = new ByteBufferBackedLargeByteBuffer(
-                            new ByteBuffer[]{ fromHex("00010203"), fromHex("0405") }, 4);
-                    bb.copyFrom(bb, srcOffset, dstOffset, length);
-                    for (int i = 0; i < 6; i++) {
-                        if (i < dstOffset || i >= dstOffset + length) {
-                            Assert.assertEquals(bb.getByte(i), i);
-                        } else {
-                            Assert.assertEquals(bb.getByte(i), i - dstOffset + srcOffset);
-                        }
-                    }
-                }
+    @Test(dataProvider = "copyIndices", expectedExceptions = IndexOutOfBoundsException.class)
+    public void copyOutOfBounds(int srcOffset, int dstOffset, int length) {
+        LargeByteBuffer bb1 = makeSrcBuffer();
+        LargeByteBuffer bb2 = makeZeroBuffer();
+        int lengthLimit = COPY_LENGTH - Math.max(srcOffset, dstOffset);
+        bb2.copyFrom(bb1, srcOffset, dstOffset, lengthLimit + 1);
+    }
+
+    @Test(dataProvider = "copyIndices")
+    public void copySame(int srcOffset, int dstOffset, int length) {
+        LargeByteBuffer bb = makeSrcBuffer();
+        bb.copyFrom(bb, srcOffset, dstOffset, length);
+        for (int i = 0; i < COPY_LENGTH; i++) {
+            if (i < dstOffset || i >= dstOffset + length) {
+                Assert.assertEquals(bb.getByte(i), i);
+            } else {
+                Assert.assertEquals(bb.getByte(i), i - dstOffset + srcOffset);
             }
         }
     }

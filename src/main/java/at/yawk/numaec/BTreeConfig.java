@@ -4,12 +4,14 @@ import java.util.StringJoiner;
 
 public final class BTreeConfig {
     final int blockSize;
+    final int regionSize;
     final int pointerSize;
     final boolean storeNextPointer;
     final boolean entryMustBeInLeaf;
 
     private BTreeConfig(Builder builder) {
         this.blockSize = builder.blockSize;
+        this.regionSize = builder.regionSize;
         this.pointerSize = builder.pointerSize;
         this.storeNextPointer = builder.storeNextPointer;
         this.entryMustBeInLeaf = builder.entryMustBeInLeaf;
@@ -32,6 +34,7 @@ public final class BTreeConfig {
     public static class Builder {
         private int blockSize = 4096; // TODO
         private int pointerSize = 4;
+        private int regionSize = 16;
         private boolean storeNextPointer = true;
         private boolean entryMustBeInLeaf = true;
 
@@ -43,6 +46,15 @@ public final class BTreeConfig {
          */
         public Builder blockSize(int blockSize) {
             this.blockSize = blockSize;
+            return this;
+        }
+
+        /**
+         * Size of allocation regions in units of {@link #blockSize}. The btree will allocate buffers of {@code
+         * blockSize * regionSize} bytes when additional space is needed.
+         */
+        public Builder regionSize(int regionSize) {
+            this.regionSize = regionSize;
             return this;
         }
 
