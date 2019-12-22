@@ -347,6 +347,11 @@ abstract class BTree {
         allocator.freeAllPages();
     }
 
+    public void close() {
+        levelCount = -1;
+        allocator.close();
+    }
+
     /**
      * Check invariants of this tree. Assumes {@link #compare} is consistent with {@link Long#compare}.
      */

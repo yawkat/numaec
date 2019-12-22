@@ -48,7 +48,7 @@ import org.eclipse.collections.impl.lazy.primitive.AbstractLazyShortIterable;
 import org.eclipse.collections.impl.primitive.AbstractCharIterable;
 import org.eclipse.collections.impl.tuple.primitive.PrimitiveTuples;
 
-public class ShortCharBTreeMap extends AbstractCharIterable implements ShortCharMap {
+public class ShortCharBTreeMap extends AbstractCharIterable implements ShortCharBufferMap {
     private static final long KEY_MASK = -1L >>> (64 - (Short.BYTES * 8));
     private static final long VALUE_MASK = -1L >>> (64 - (Character.BYTES * 8));
 
@@ -480,6 +480,11 @@ public class ShortCharBTreeMap extends AbstractCharIterable implements ShortChar
         }
     }
 
+    @Override
+    public void close() {
+        bTree.close();
+    }
+
     private static abstract class BaseIterator {
         /**
          * this cursor is never closed, but since all {@link BTree.Cursor#close()} does is make it available for
@@ -547,7 +552,7 @@ public class ShortCharBTreeMap extends AbstractCharIterable implements ShortChar
         }
     }
 
-    public static class Mutable extends ShortCharBTreeMap implements MutableShortCharMap {
+    public static class Mutable extends ShortCharBTreeMap implements MutableShortCharBufferMap {
         Mutable(LargeByteBufferAllocator allocator, BTreeConfig config) {
             super(allocator, config);
         }
