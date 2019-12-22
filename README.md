@@ -7,6 +7,16 @@ high performance yet.
 
 numa-ec was developed for indexing functionality in [java-browser](https://java-browser.yawk.at/), where it is used to hold very large finite state automatons on disk as a more storage-efficient alternative to a database.
 
+numa-ec is available on central:
+
+```xml
+<dependency>
+    <groupId>at.yawk.numaec</groupId>
+    <artifactId>numa-eclipse-collections</artifactId>
+    <version>0.1</version>
+</dependency>
+```
+
 ## Memory Backend
 
 All collections in this project store their data in `LargeByteBuffer`s. These have a stripped-down API similar to `ByteBuffer`, except with long-based indexing. Buffers are fixed-size and are created using `LargeByteBufferAllocator`s that are passed into the collection factories.
