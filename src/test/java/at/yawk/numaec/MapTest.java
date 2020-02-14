@@ -12,6 +12,7 @@ import org.eclipse.collections.api.set.primitive.IntSet;
 import org.eclipse.collections.api.set.primitive.MutableDoubleSet;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.eclipse.collections.impl.factory.primitive.DoubleSets;
+import org.eclipse.collections.impl.factory.primitive.IntDoubleMaps;
 import org.eclipse.collections.impl.factory.primitive.IntSets;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
@@ -210,7 +211,7 @@ public class MapTest {
                 Assert.assertTrue(expectedKeysK.isEmpty());
 
                 MutableDoubleSet expectedValues = DoubleSets.mutable.ofAll(
-                        IntStream.range(0, i + 1).mapToDouble(k->k*1.5));
+                        IntStream.range(0, i + 1).mapToDouble(k -> k * 1.5));
                 map.forEachValue(v -> Assert.assertTrue(expectedValues.remove(v)));
                 Assert.assertTrue(expectedValues.isEmpty());
 
@@ -307,7 +308,11 @@ public class MapTest {
         checkInvariants(map);
         map.updateValues(Double::sum);
         checkInvariants(map);
-        Assert.assertEquals(map.toString(), "{1=6.0, 2=8.0, 3=10.0}");
+        Assert.assertEquals(
+                IntDoubleMaps.immutable.ofAll(map),
+                IntDoubleMaps.immutable.with(1, 6.0)
+                        .newWithKeyValue(2, 8.0)
+                        .newWithKeyValue(3, 10.0));
     }
 
     @Test(dataProvider = "map")

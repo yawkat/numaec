@@ -387,17 +387,27 @@ abstract class LinearHashTable implements AutoCloseable {
             }
         }
 
+        /**
+         * Replace any pointers that are pointing to the bucket this cursor is at with a pointer to the given bucket.
+         */
+        private void replaceBucketWith(long bucket) {
+            if (prevBucket == NULL) {
+                mainBuckets.set(bucketIndex, bucket);
+            } else {
+                setNextPointer(prevBucket, bucket);
+            }
+        }
+
         private void freeBucket() {
             long next = getNextPointer(bucket);
-            if (prevBucket == NULL) {
-                mainBuckets.set(bucketIndex, next);
-            } else {
-                setNextPointer(prevBucket, next);
-            }
+            replaceBucketWith(next);
             allocator.freePage(Math.toIntExact(bucket));
             bucket = next;
         }
 
+        /**
+         * Backfill items into the previous bucket, if there is space.
+         */
         private void backfill() {
             while (true) {
                 if (prevBucket == NULL) { throw new IllegalStateException(); }
@@ -523,25 +533,29 @@ abstract class LinearHashTable implements AutoCloseable {
             }
 
             if (bucket != NULL) {
-                // might need to move some entries from this bucket to the new daughter.
-                try (Cursor daughter = allocateCursor()) {
-                    daughter.seekMainBucketByBucketIndex(daughterBucketIndex);
+                long firstToDaughter = Long.reverse(Integer.toUnsignedLong(daughterBucketIndex));
+                seekInChain(firstToDaughter, 0); // 0 is the lowest key for the hash
+                if (indexInBucket == ~maxBucketEntryCount) { throw new AssertionError(); }
 
-                    long firstToDaughter = Long.reverse(Integer.toUnsignedLong(daughter.bucketIndex));
-                    seekInChain(firstToDaughter, 0); // 0 is the lowest key for the hash
-                    if (indexInBucket == ~maxBucketEntryCount) { throw new AssertionError(); }
-
-                    long start = indexInBucket < 0 ? ~indexInBucket : indexInBucket;
-                    while (this.bucket != NULL) {
-                        daughter.appendItemsFromBucket(this.bucket, start);
-                        if (start == 0) {
-                            freeBucket();
-                        } else {
-                            setBucketEntryCount(this.bucket, start);
-                            jumpToNextBucket();
-                            start = 0;
-                        }
-                    }
+                long pivotBucket = this.bucket;
+                long startIndex = indexInBucket < 0 ? ~indexInBucket : indexInBucket;
+                if (startIndex == 0) {
+                    // move everything starting at this block to daughter
+                    replaceBucketWith(NULL);
+                    mainBuckets.set(daughterBucketIndex, pivotBucket);
+                } else if (startIndex < getEntryCount()) {
+                    // copy only some items
+                    seekMainBucketByBucketIndex(daughterBucketIndex);
+                    appendItemsFromBucket(pivotBucket, startIndex);
+                    setBucketEntryCount(pivotBucket, startIndex);
+                    // relink buckets after the pivot bucket to the new daughter chain
+                    setNextPointer(bucket, getNextPointer(pivotBucket));
+                    setNextPointer(pivotBucket, NULL);
+                    jumpToNextBucket();
+                    backfill();
+                } else {
+                    // copy nothing
+                    if (startIndex > getEntryCount()) { throw new AssertionError(); }
                 }
             }
         }
