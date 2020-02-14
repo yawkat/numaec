@@ -1200,9 +1200,6 @@ abstract class BTree {
             return true;
         }
 
-        /**
-         * Marks this cursor for possible reuse.
-         */
         @Override
         public void close() {
             init();

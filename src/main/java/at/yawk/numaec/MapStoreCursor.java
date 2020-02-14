@@ -1,6 +1,6 @@
 package at.yawk.numaec;
 
-public interface MapStoreCursor extends AutoCloseable {
+interface MapStoreCursor extends AutoCloseable {
     long getKey();
 
     long getValue();
@@ -9,6 +9,9 @@ public interface MapStoreCursor extends AutoCloseable {
 
     boolean elementFound();
 
+    /**
+     * Marks this cursor for possible reuse.
+     */
     @Override
     void close();
 }

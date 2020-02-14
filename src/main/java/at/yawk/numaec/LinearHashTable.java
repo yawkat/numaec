@@ -1,5 +1,6 @@
 package at.yawk.numaec;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.impl.factory.primitive.LongLists;
 
@@ -24,6 +25,8 @@ abstract class LinearHashTable implements AutoCloseable {
     private final LargeByteBuffer buf;
 
     private final MutableLongList mainBuckets = LongLists.mutable.empty();
+
+    private final AtomicReference<Cursor> reuseCursor = new AtomicReference<>();
 
     LinearHashTable(
             LargeByteBufferAllocator allocator,
@@ -79,10 +82,13 @@ abstract class LinearHashTable implements AutoCloseable {
         }
     }
 
+    @SuppressWarnings("resource")
     public Cursor allocateCursor() {
-        // TODO
-        Cursor cursor = new Cursor();
-        cursor.init();
+        Cursor cursor = reuseCursor.getAndSet(null);
+        if (cursor == null) {
+            cursor = new Cursor();
+            cursor.init();
+        }
         return cursor;
     }
 
@@ -562,7 +568,8 @@ abstract class LinearHashTable implements AutoCloseable {
 
         @Override
         public void close() {
-            // TODO
+            init();
+            reuseCursor.set(this);
         }
     }
 }
