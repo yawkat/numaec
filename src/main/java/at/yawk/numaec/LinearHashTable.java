@@ -171,8 +171,6 @@ abstract class LinearHashTable implements AutoCloseable {
         return baseAddress(bucket) + indexInBucket * entrySize;
     }
 
-    // TODO: test case with hash collision
-
     private long getHash0(long bucket, long indexInBucket) {
         return readHash(buf, getEntryAddress(bucket, indexInBucket));
     }

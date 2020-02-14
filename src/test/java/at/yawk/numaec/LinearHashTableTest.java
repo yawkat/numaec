@@ -11,16 +11,16 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public final class LinearHashTableTest {
-    static List<LinearHashMapConfig> configList() {
+    static List<LinearHashMapConfig.Builder> configList() {
         return Arrays.asList(
-                LinearHashMapConfig.builder().bucketSize(32).build(),
-                LinearHashMapConfig.builder().bucketSize(64).build()
+                LinearHashMapConfig.builder().bucketSize(32),
+                LinearHashMapConfig.builder().bucketSize(64)
         );
     }
 
     @DataProvider
     public Object[][] config() {
-        return configList().stream().map(c -> new Object[]{ c }).toArray(Object[][]::new);
+        return configList().stream().map(c -> new Object[]{ c.build() }).toArray(Object[][]::new);
     }
 
     private void insert(LinearHashTable lht, long hash, long key, long value) {

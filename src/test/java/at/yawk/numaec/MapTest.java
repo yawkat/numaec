@@ -27,8 +27,13 @@ public class MapTest {
                         0x1000000);
         Stream<Object[]> btreeStream = BTreeTest.configList().stream().map(cfg -> new Object[]{
                 new IntDoubleBTreeMap.Mutable(allocator, cfg) });
-        Stream<Object[]> lhtStream = LinearHashTableTest.configList().stream().map(cfg -> new Object[]{
-                new IntDoubleLinearHashMap.Mutable(allocator, cfg) });
+        Stream<Object[]> lhtStream = LinearHashTableTest.configList().stream()
+                .flatMap(b -> Stream.of(
+                        b.hashLength(4).build(),
+                        b.hashLength(8).build(),
+                        b.dontStoreHash().build()
+                ))
+                .map(cfg -> new Object[]{ new IntDoubleLinearHashMap.Mutable(allocator, cfg), });
         return Stream.concat(btreeStream, lhtStream).toArray(Object[][]::new);
     }
 

@@ -17,11 +17,10 @@ import org.eclipse.collections.api.map.primitive.MutableShortCharMap;
 import org.eclipse.collections.api.map.primitive.ShortCharMap;
 
 class ShortCharLinearHashMap extends BaseShortCharMap implements ShortCharBufferMap {
-    // we use the top 4 bytes of a long for the hash
-    private static final int HASH_LENGTH = 4;
-
     private final float loadFactor;
     private final long sipHashK0, sipHashK1;
+    private final long hashMask;
+
     protected final LinearHashTable table;
     protected int size;
 
@@ -29,28 +28,38 @@ class ShortCharLinearHashMap extends BaseShortCharMap implements ShortCharBuffer
         this.sipHashK0 = config.sipHashK0.getAsLong();
         this.sipHashK1 = config.sipHashK1.getAsLong();
         this.loadFactor = config.loadFactor;
-        this.table = new LinearHashTable(allocator, config, HASH_LENGTH + Short.BYTES + Character.BYTES) {
+        int hashLength = config.hashLength;
+        this.hashMask = hashLength == 0 ? -1L : ~(-1L >>> hashLength);
+        this.table = new LinearHashTable(allocator, config, hashLength + Short.BYTES + Character.BYTES) {
             @Override
             protected void write(LargeByteBuffer lbb, long address, long hash, long key, long value) {
-                if ((int) hash != 0) { throw new AssertionError("malformed hash"); }
-                lbb.setInt(address, (int) (hash >> 32));
-                lbb.setShort(address + HASH_LENGTH, fromKey(key));
-                lbb.setChar(address + HASH_LENGTH + Short.BYTES, fromValue(value));
+                if (hashLength != 0) {
+                    if ((hash & ~hashMask) != 0) {
+                        throw new AssertionError();
+                    }
+                    BTree.uset(lbb, address, hashLength, Long.reverse(hash));
+                }
+                lbb.setShort(address + hashLength, fromKey(key));
+                lbb.setChar(address + hashLength + Short.BYTES, fromValue(value));
             }
 
             @Override
             protected long readHash(LargeByteBuffer lbb, long address) {
-                return (long) lbb.getInt(address) << 32;
+                if (hashLength == 0) {
+                    return hash(fromKey(readKey(lbb, address)));
+                } else {
+                    return Long.reverse(BTree.uget(lbb, address, hashLength));
+                }
             }
 
             @Override
             protected long readKey(LargeByteBuffer lbb, long address) {
-                return toKey(lbb.getShort(address + HASH_LENGTH));
+                return toKey(lbb.getShort(address + hashLength));
             }
 
             @Override
             protected long readValue(LargeByteBuffer lbb, long address) {
-                return toValue(lbb.getChar(address + HASH_LENGTH + Short.BYTES));
+                return toValue(lbb.getChar(address + hashLength + Short.BYTES));
             }
         };
     }
@@ -79,7 +88,7 @@ class ShortCharLinearHashMap extends BaseShortCharMap implements ShortCharBuffer
     }
 
     protected long hash(short key) {
-        return SipHash.sipHash2_4_8_to_8(sipHashK0, sipHashK1, toKey(key)) & 0xffffffff00000000L;
+        return SipHash.sipHash2_4_8_to_8(sipHashK0, sipHashK1, toKey(key)) & hashMask;
     }
 
     @Override
