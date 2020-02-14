@@ -1,10 +1,3 @@
-/* with short|byte|char|int|long|float|double key
-        char|byte|short|int|long|float|double value */
-/* define aggregate //
-// if double|float value //double
-// elif short|byte|char|int|long value //long
-// endif //
-// enddefine*/
 package at.yawk.numaec;
 
 import org.eclipse.collections.api.ShortIterable;
@@ -23,65 +16,58 @@ import org.eclipse.collections.api.map.primitive.MutableCharShortMap;
 import org.eclipse.collections.api.map.primitive.MutableShortCharMap;
 import org.eclipse.collections.api.map.primitive.ShortCharMap;
 
-public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBufferMap {
-    protected final BTree bTree;
-    protected int size = 0;
+class ShortCharLinearHashMap extends BaseShortCharMap implements ShortCharBufferMap {
+    // we use the top 4 bytes of a long for the hash
+    private static final int HASH_LENGTH = 4;
 
-    ShortCharBTreeMap(LargeByteBufferAllocator allocator, BTreeConfig config) {
-        int leafSize = Short.BYTES + Character.BYTES;
-        int branchSize = config.entryMustBeInLeaf ? Short.BYTES : leafSize;
-        this.bTree = new BTree(allocator, config, branchSize, leafSize) {
+    private final float loadFactor;
+    private final long sipHashK0, sipHashK1;
+    protected final LinearHashTable table;
+    protected int size;
+
+    ShortCharLinearHashMap(LargeByteBufferAllocator allocator, LinearHashMapConfig config) {
+        this.sipHashK0 = config.sipHashK0.getAsLong();
+        this.sipHashK1 = config.sipHashK1.getAsLong();
+        this.loadFactor = config.loadFactor;
+        this.table = new LinearHashTable(allocator, config, HASH_LENGTH + Short.BYTES + Character.BYTES) {
             @Override
-            protected void writeBranchEntry(LargeByteBuffer lbb, long address, long key, long value) {
-                lbb.setShort(address, fromKey(key));
-                if (!config.entryMustBeInLeaf) {
-                    lbb.setChar(address + Short.BYTES, fromValue(value));
-                }
+            protected void write(LargeByteBuffer lbb, long address, long hash, long key, long value) {
+                if ((int) hash != 0) { throw new AssertionError("malformed hash"); }
+                lbb.setInt(address, (int) (hash >> 32));
+                lbb.setShort(address + HASH_LENGTH, fromKey(key));
+                lbb.setChar(address + HASH_LENGTH + Short.BYTES, fromValue(value));
             }
 
             @Override
-            protected void writeLeafEntry(LargeByteBuffer lbb, long address, long key, long value) {
-                lbb.setShort(address, fromKey(key));
-                lbb.setChar(address + Short.BYTES, fromValue(value));
+            protected long readHash(LargeByteBuffer lbb, long address) {
+                return (long) lbb.getInt(address) << 32;
             }
 
             @Override
-            protected long readBranchKey(LargeByteBuffer lbb, long address) {
-                return toKey(lbb.getShort(address));
+            protected long readKey(LargeByteBuffer lbb, long address) {
+                return toKey(lbb.getShort(address + HASH_LENGTH));
             }
 
             @Override
-            protected long readBranchValue(LargeByteBuffer lbb, long address) {
-                if (config.entryMustBeInLeaf) {
-                    throw new AssertionError();
-                } else {
-                    return toValue(lbb.getChar(address + Short.BYTES));
-                }
-            }
-
-            @Override
-            protected long readLeafKey(LargeByteBuffer lbb, long address) {
-                return toKey(lbb.getShort(address));
-            }
-
-            @Override
-            protected long readLeafValue(LargeByteBuffer lbb, long address) {
-                return toValue(lbb.getChar(address + Short.BYTES));
+            protected long readValue(LargeByteBuffer lbb, long address) {
+                return toValue(lbb.getChar(address + HASH_LENGTH + Short.BYTES));
             }
         };
     }
 
+    protected void ensureCapacity(int capacity) {
+        table.expandToFullLoadCapacity((long) (capacity / loadFactor));
+    }
+
     @Override
     protected MapStoreCursor iterationCursor() {
-        BTree.Cursor cursor = bTree.allocateCursor();
-        cursor.descendToStart();
-        return cursor;
+        return table.allocateCursor();
     }
 
     @Override
     protected MapStoreCursor keyCursor(short key) {
-        BTree.Cursor cursor = bTree.allocateCursor();
-        cursor.descendToKey(toKey(key));
+        LinearHashTable.Cursor cursor = table.allocateCursor();
+        cursor.seek(hash(key), toKey(key));
         return cursor;
     }
 
@@ -89,7 +75,16 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
     @Override
     void checkInvariants() {
         super.checkInvariants();
-        bTree.checkInvariants();
+        table.checkInvariants();
+    }
+
+    protected long hash(short key) {
+        return SipHash.sipHash2_4_8_to_8(sipHashK0, sipHashK1, toKey(key)) & 0xffffffff00000000L;
+    }
+
+    @Override
+    public void close() {
+        table.close();
     }
 
     @Override
@@ -97,41 +92,41 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
         return size;
     }
 
-    @Override
-    public void close() {
-        bTree.close();
-    }
+    public static class Mutable extends ShortCharLinearHashMap implements MutableShortCharBufferMap {
 
-    public static class Mutable extends ShortCharBTreeMap implements MutableShortCharBufferMap {
-        Mutable(LargeByteBufferAllocator allocator, BTreeConfig config) {
+        Mutable(LargeByteBufferAllocator allocator, LinearHashMapConfig config) {
             super(allocator, config);
         }
 
         @Override
         public void put(short key, char value) {
+            ensureCapacity(1);
+            long h = hash(key);
             long k = toKey(key);
             long v = toValue(value);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                cursor.seek(h, k);
                 if (cursor.elementFound()) {
                     cursor.setValue(v);
                 } else {
-                    cursor.simpleInsert(k, v);
-                    cursor.balance();
+                    cursor.insert(h, k, v);
                     size++;
+                    ensureCapacity(size);
                 }
             }
         }
 
         @Override
         public void putAll(ShortCharMap map) {
+            // this is too pessimistic when the given map's keys overlap with outs but probably covers the main use
+            // cases just fine
+            ensureCapacity(size + map.size());
             map.forEachKeyValue(this::put);
         }
 
         @Override
         public void updateValues(ShortCharToCharFunction function) {
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToStart();
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
                 while (cursor.next()) {
                     char updated = function.valueOf(fromKey(cursor.getKey()), fromValue(cursor.getValue()));
                     cursor.setValue(toValue(updated));
@@ -141,12 +136,10 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public void removeKey(short key) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                cursor.seek(hash(key), toKey(key));
                 if (cursor.elementFound()) {
-                    cursor.simpleRemove();
-                    cursor.balance();
+                    cursor.remove();
                     size--;
                 }
             }
@@ -159,13 +152,11 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char removeKeyIfAbsent(short key, char value) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                cursor.seek(hash(key), toKey(key));
                 if (cursor.elementFound()) {
                     char v = fromValue(cursor.getValue());
-                    cursor.simpleRemove();
-                    cursor.balance();
+                    cursor.remove();
                     size--;
                     return v;
                 } else {
@@ -176,15 +167,17 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char getIfAbsentPut(short key, char value) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     return fromValue(cursor.getValue());
                 } else {
-                    cursor.simpleInsert(k, toValue(value));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(value));
                     size++;
+                    ensureCapacity(size);
                     return value;
                 }
             }
@@ -192,16 +185,18 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char getIfAbsentPut(short key, CharFunction0 function) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     return fromValue(cursor.getValue());
                 } else {
                     char v = function.value();
-                    cursor.simpleInsert(k, toValue(v));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(v));
                     size++;
+                    ensureCapacity(size);
                     return v;
                 }
             }
@@ -209,16 +204,18 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char getIfAbsentPutWithKey(short key, ShortToCharFunction function) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     return fromValue(cursor.getValue());
                 } else {
                     char v = function.valueOf(key);
-                    cursor.simpleInsert(k, toValue(v));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(v));
                     size++;
+                    ensureCapacity(size);
                     return v;
                 }
             }
@@ -226,16 +223,18 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public <P> char getIfAbsentPutWith(short key, CharFunction<? super P> function, P parameter) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     return fromValue(cursor.getValue());
                 } else {
                     char v = function.charValueOf(parameter);
-                    cursor.simpleInsert(k, toValue(v));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(v));
                     size++;
+                    ensureCapacity(size);
                     return v;
                 }
             }
@@ -243,18 +242,20 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char updateValue(short key, char initialValueIfAbsent, CharToCharFunction function) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     char updated = function.valueOf(fromValue(cursor.getValue()));
                     cursor.setValue(toValue(updated));
                     return updated;
                 } else {
                     char updated = function.valueOf(initialValueIfAbsent);
-                    cursor.simpleInsert(k, toValue(updated));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(updated));
                     size++;
+                    ensureCapacity(size);
                     return updated;
                 }
             }
@@ -290,17 +291,19 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public char addToValue(short key, char toBeAdded) {
-            long k = toKey(key);
-            try (BTree.Cursor cursor = bTree.allocateCursor()) {
-                cursor.descendToKey(k);
+            // only resize map if we really need to down below
+            ensureCapacity(1);
+            try (LinearHashTable.Cursor cursor = table.allocateCursor()) {
+                long hash = hash(key);
+                cursor.seek(hash, toKey(key));
                 if (cursor.elementFound()) {
                     char updated = (char) (fromValue(cursor.getValue()) + toBeAdded);
                     cursor.setValue(toValue(updated));
                     return updated;
                 } else {
-                    cursor.simpleInsert(k, toValue(toBeAdded));
-                    cursor.balance();
+                    cursor.insert(hash, toKey(key), toValue(toBeAdded));
                     size++;
+                    ensureCapacity(size);
                     return toBeAdded;
                 }
             }
@@ -308,7 +311,7 @@ public class ShortCharBTreeMap extends BaseShortCharMap implements ShortCharBuff
 
         @Override
         public void clear() {
-            bTree.clear();
+            table.clear();
             size = 0;
         }
 

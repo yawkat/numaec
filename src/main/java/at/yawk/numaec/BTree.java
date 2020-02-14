@@ -1,6 +1,5 @@
 package at.yawk.numaec;
 
-import java.io.Closeable;
 import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.collections.api.list.primitive.MutableLongList;
 import org.eclipse.collections.api.set.primitive.MutableLongSet;
@@ -21,8 +20,6 @@ abstract class BTree {
     static final String MESSAGE_POINTER_TOO_SMALL = "BTree pointer size too small";
 
     private static final long NULL = -1;
-
-    private static final int INITIAL_BLOCK_COUNT = 16;
 
     private final int blockSize;
     private final int pointerSize;
@@ -73,7 +70,7 @@ abstract class BTree {
 
     private final int branchCapacity;
 
-    private static int requiredCountBytes(long maxCount) {
+    static int requiredCountBytes(long maxCount) {
         if (maxCount < 0x100) { return 1; }
         if (maxCount < 0x10000) { return 2; }
         if (maxCount < 0x100000000L) { return 4; }
@@ -120,18 +117,22 @@ abstract class BTree {
         }
     }
 
-    private long uget(long address, int length) {
+    static long uget(LargeByteBuffer buf, long address, int length) {
         if (length == 1) { return buf.getByte(address) & 0xffL; }
         if (length == 2) { return buf.getShort(address) & 0xffffL; }
         if (length == 4) { return buf.getInt(address) & 0xffffffffL; }
         return buf.getLong(address);
     }
 
+    private long uget(long address, int length) {
+        return uget(buf, address, length);
+    }
+
     private long getPtr(long address) {
         return mapPointer(uget(address, pointerSize));
     }
 
-    private void uset(long address, int length, long value) {
+    static void uset(LargeByteBuffer buf, long address, int length, long value) {
         if (length == 1) {
             if (value > 0xff) { throw new IllegalArgumentException(); }
             buf.setByte(address, (byte) value);
@@ -148,6 +149,10 @@ abstract class BTree {
             return;
         }
         buf.setLong(address, value);
+    }
+
+    private void uset(long address, int length, long value) {
+        uset(buf, address, length, value);
     }
 
     private long getLeafItemCount(long blockPtr) {
@@ -432,20 +437,24 @@ abstract class BTree {
 
     @DoNotMutate
     String toStringFlat() {
-        StringBuilder builder = new StringBuilder("[");
         try (Cursor iterator = new Cursor()) {
             iterator.descendToStart();
-            boolean first = true;
-            while (iterator.next()) {
-                if (first) {
-                    first = false;
-                } else {
-                    builder.append(", ");
-                }
-                builder.append(iterator.getKey()).append("->").append(iterator.getValue());
-            }
-            return builder.append(']').toString();
+            return BTree.toString(iterator);
         }
+    }
+
+    static String toString(MapStoreCursor iterator) {
+        boolean first = true;
+        StringBuilder builder = new StringBuilder("[");
+        while (iterator.next()) {
+            if (first) {
+                first = false;
+            } else {
+                builder.append(", ");
+            }
+            builder.append(iterator.getKey()).append("->").append(iterator.getValue());
+        }
+        return builder.append(']').toString();
     }
 
     @DoNotMutate
@@ -589,7 +598,7 @@ abstract class BTree {
 
     protected abstract long readLeafValue(LargeByteBuffer lbb, long address);
 
-    public class Cursor implements Closeable {
+    public class Cursor implements MapStoreCursor {
         long[] trace;
         long[] trace2;
         long[] traceIndex;
@@ -713,6 +722,7 @@ abstract class BTree {
             descendToImmediateRightLeaf();
         }
 
+        @Override
         public boolean elementFound() {
             return level >= 0 && traceIndex[level] >= 0;
         }
@@ -741,21 +751,14 @@ abstract class BTree {
             simpleLeafInsert(trace[level], ~traceIndex[level], key, value);
         }
 
-        public void update(long key, long value) {
-            if (!elementFound()) { throw new IllegalStateException(); }
-            if (inLeaf()) {
-                writeLeafEntry(trace[level], traceIndex[level], key, value);
-            } else {
-                writeBranchEntry(trace[level], traceIndex[level], key, value);
-            }
-        }
-
+        @Override
         public long getKey() {
             if (traceIndex[level] < 0 || traceIndex[level] >= getItemCount()) { throw new IllegalStateException(); }
             return inLeaf() ? readLeafKey(trace[level], traceIndex[level]) :
                     readBranchKey(trace[level], traceIndex[level]);
         }
 
+        @Override
         public long getValue() {
             if (traceIndex[level] < 0 || traceIndex[level] >= getItemCount()) { throw new IllegalStateException(); }
             return inLeaf() ?
@@ -819,6 +822,7 @@ abstract class BTree {
             return true;
         }
 
+        @Override
         public boolean next() {
             if (levelCount == 0) {
                 return false;

@@ -3,6 +3,8 @@ package at.yawk.numaec;
 import java.util.StringJoiner;
 
 public final class BTreeConfig {
+    static final int PAGE_SIZE = 4096; // TODO
+
     final int blockSize;
     final int regionSize;
     final int pointerSize;
@@ -32,7 +34,7 @@ public final class BTreeConfig {
     }
 
     public static class Builder {
-        private int blockSize = 4096; // TODO
+        private int blockSize = PAGE_SIZE;
         private int pointerSize = 4;
         private int regionSize = 16;
         private boolean storeNextPointer = true;

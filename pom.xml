@@ -68,6 +68,12 @@
             <version>1.13</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>28.1-jre</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -96,6 +102,7 @@
                         <param>at.yawk.numaec.LongBufferList*</param>
                         <param>at.yawk.numaec.IntDoubleBTreeMap*</param>
                         <param>at.yawk.numaec.BTree*</param>
+                        <param>at.yawk.numaec.LinearHashTable*</param>
                     </targetClasses>
                     <targetTests>
                         <param>at.yawk.numaec.*</param>

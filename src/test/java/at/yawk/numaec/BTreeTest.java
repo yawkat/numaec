@@ -18,7 +18,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public final class BTreeTest {
-    private static final LargeByteBufferAllocator SIMPLE_ALLOCATOR = size -> {
+    static final LargeByteBufferAllocator SIMPLE_ALLOCATOR = size -> {
         int sizeInt = Math.toIntExact(size);
         return new ByteBufferBackedLargeByteBuffer(new ByteBuffer[]{ ByteBuffer.allocate(sizeInt) }, 0x1000000);
     };
